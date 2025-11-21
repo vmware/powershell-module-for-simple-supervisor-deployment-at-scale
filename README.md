@@ -1,0 +1,1 @@
+# powershell-script-for-single-node-vsphere-supervisor
