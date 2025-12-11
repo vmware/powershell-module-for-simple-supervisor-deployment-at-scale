@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Blog
+    url: 'https://blogs.vmware.com/cloud-foundation/2025/07/14/modernizing-your-edge-with-single-node-vsphere-supervisor-in-vmware-cloud-foundation-9-0/'
+    about: Having trouble with the module? Check out the documentation.
+  - name: VMware Cloud Foundation Product Documentation
+    url: 'https://techdocs.broadcom.com/en/VMware/Cloud-Foundation/index.html
+    about: Find more information in the official VMware Cloud Foundation documentation.''
