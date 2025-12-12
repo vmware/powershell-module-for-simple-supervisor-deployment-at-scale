@@ -447,15 +447,24 @@ Function Write-LogMessage {
 
     # Write message to log file (unless suppressed).
     if (-not $suppressOutputToFile) {
-        $logContent = '[' + $timeStamp + '] ' + '(' + $type + ')' + ' ' + $message
-        try {
-            Add-Content -ErrorVariable ErrorMessage -Path $Script:LogFile $logContent
+        # Only attempt to write to log file if it's been initialized and path is valid
+        if ($Script:LogFile -and -not [string]::IsNullOrWhiteSpace($Script:LogFile)) {
+            $logContent = '[' + $timeStamp + '] ' + '(' + $type + ')' + ' ' + $message
+            try {
+                # Ensure the log file directory exists
+                $logDir = Split-Path -Path $Script:LogFile -Parent -ErrorAction SilentlyContinue
+                if ($logDir -and -not (Test-Path -Path $logDir -ErrorAction SilentlyContinue)) {
+                    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+                }
+                Add-Content -Path $Script:LogFile -Value $logContent -ErrorAction Stop
+            }
+            catch {
+                # Handle log file write failures gracefully - only show error if log file was expected
+                # Silently ignore if log file wasn't initialized (e.g., standalone function calls)
+                # Don't show error message to avoid cluttering output when function is called standalone
+            }
         }
-        catch {
-            # Handle log file write failures gracefully.
-            Write-Host "Failed to add content to log file $Script:LogFile."
-            Write-Host $errorMessage
-        }
+        # If log file is not initialized, silently skip file logging (function may be called standalone)
     }
 }
 Function Show-Version {
@@ -11562,6 +11571,63 @@ Function Copy-SimpleSupervisorTemplates {
     }
 }
 
+Function Format-ConfigurationTable {
+    <#
+        .SYNOPSIS
+        Formats configuration data as a table.
+
+        .DESCRIPTION
+        Internal helper function that formats an array of configuration objects as a table.
+
+        .PARAMETER InputObject
+        Array of PSCustomObject configuration items to format.
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [PSCustomObject[]]$InputObject
+    )
+
+    Begin {
+        $allItems = @()
+        $seenElements = @{}
+    }
+
+    Process {
+        # Handle both single objects and arrays
+        if ($null -ne $InputObject) {
+            if ($InputObject -is [Array]) {
+                foreach ($item in $InputObject) {
+                    if ($null -ne $item -and $null -ne $item.'Element Name') {
+                        $elementName = $item.'Element Name'
+                        if (-not $seenElements.ContainsKey($elementName)) {
+                            $seenElements[$elementName] = $true
+                            $allItems += $item
+                        }
+                    }
+                }
+            } else {
+                if ($null -ne $InputObject.'Element Name') {
+                    $elementName = $InputObject.'Element Name'
+                    if (-not $seenElements.ContainsKey($elementName)) {
+                        $seenElements[$elementName] = $true
+                        $allItems += $InputObject
+                    }
+                }
+            }
+        }
+    }
+
+    End {
+        if ($allItems.Count -eq 0) {
+            return
+        }
+
+        # Simply format as table
+        $allItems | Format-Table -Property 'Element Name', 'Default Value May Be Used?', 'Created by Script?', 'Notes' -AutoSize -Wrap
+    }
+}
+
 Function Show-InfrastructureJsonConfigurationHelp {
     <#
         .SYNOPSIS
@@ -11572,16 +11638,57 @@ Function Show-InfrastructureJsonConfigurationHelp {
         for the infrastructure.json file, including whether default values can be used, whether
         the element is created by the script, and important notes for each field.
 
+        .PARAMETER Format
+        Specifies the output format. Valid values are:
+
+        - Auto (default): Automatically selects the best format based on terminal width. Uses 'List' for narrow screens (< WidthThreshold characters, default 120) and 'Table' for wide screens (>= WidthThreshold characters).
+        - List: Displays each field on its own line. Works best for narrow screens (40-50+ characters). No column wrapping issues.
+        - Table: Displays data in a table format with columns. Best for wide screens (WidthThreshold+ characters, default 120+).
+        - GridView: Opens an interactive grid view window with sorting and filtering capabilities. Works on any screen size but requires Windows PowerShell (not available in PowerShell Core on macOS/Linux).
+
+        .PARAMETER Filter
+        Filters the configuration elements by Element Name using wildcard matching. The filter is automatically wrapped with wildcards (*) on both sides.
+        For example, '-Filter tkgsComponentSpec' will match all elements containing 'tkgsComponentSpec' in their name.
+
         .EXAMPLE
         Show-InfrastructureJsonConfigurationHelp
 
-        Displays the complete infrastructure.json configuration reference table.
+        Displays the complete infrastructure.json configuration reference table using auto-detected format.
+
+        .EXAMPLE
+        Show-InfrastructureJsonConfigurationHelp -Format Auto
+
+        Automatically selects the best format based on terminal width.
+
+        .EXAMPLE
+        Show-InfrastructureJsonConfigurationHelp -Format List
+
+        Displays the configuration in list format, ideal for narrow screens.
+
+        .EXAMPLE
+        Show-InfrastructureJsonConfigurationHelp -Format Table
+
+        Displays the configuration in table format, ideal for wide screens.
+
+        .EXAMPLE
+        Show-InfrastructureJsonConfigurationHelp -Format GridView
+
+        Opens an interactive grid view window with sorting and filtering capabilities (Windows PowerShell only).
+
+        .EXAMPLE
+        Show-InfrastructureJsonConfigurationHelp -Filter argoCD
+
+        Displays only configuration elements containing 'argoCD' in their Element Name.
 
         .OUTPUTS
-        None. This function displays formatted table output to the console.
+        None. This function displays formatted output to the console or opens a grid view window.
     #>
     [CmdletBinding()]
-    Param()
+    Param(
+        [Parameter()] [ValidateSet('Table', 'List', 'GridView', 'Auto')] [string]$Format = 'Auto',
+        [Parameter()] [string]$Filter,
+        [Parameter()] [int]$WidthThreshold = 120
+    )
 
     $infrastructureConfig = @(
         [PSCustomObject]@{
@@ -11718,18 +11825,69 @@ Function Show-InfrastructureJsonConfigurationHelp {
         }
     )
 
+    # Apply filter if specified
+    if ($Filter) {
+        $filterPattern = "*$Filter*"
+        $infrastructureConfig = $infrastructureConfig | Where-Object {
+            $_.'Element Name' -like $filterPattern
+        }
+
+        if ($infrastructureConfig.Count -eq 0) {
+            Write-Warning "No configuration elements found matching filter: $Filter"
+            return
+        }
+    }
+
+    # Detect terminal width
+    $terminalWidth = if ($Host.UI.RawUI.BufferSize.Width -gt 0) {
+        $Host.UI.RawUI.BufferSize.Width
+    } else {
+        $WidthThreshold  # Default fallback
+    }
+
+    # Adjust line width for header (max WidthThreshold, or terminal width if smaller)
+    $lineWidth = [Math]::Min($terminalWidth, $WidthThreshold)
+
     Write-Host "`n" -NoNewline
-    Write-Host ("=" * 120) -ForegroundColor Cyan
+    Write-Host ("=" * $lineWidth) -ForegroundColor Cyan
     Write-Host "Infrastructure.json Configuration Reference" -ForegroundColor Cyan
-    Write-Host ("=" * 120) -ForegroundColor Cyan
+    Write-Host ("=" * $lineWidth) -ForegroundColor Cyan
     Write-Host "`n"
 
-    try {
-        $infrastructureConfig | Format-Table -AutoSize -Wrap
-    } catch {
-        Write-Warning "Failed to format configuration table: $($_.Exception.Message)"
-        Write-Host "Displaying configuration as list format:" -ForegroundColor Yellow
-        $infrastructureConfig | Format-List
+    # Determine format if Auto is selected
+    if ($Format -eq 'Auto') {
+        # Auto-select: List for narrow screens (< WidthThreshold chars), Table for wide screens
+        if ($terminalWidth -lt $WidthThreshold) {
+            $Format = 'List'
+        } else {
+            $Format = 'Table'
+        }
+    }
+
+    # Display based on selected format
+    switch ($Format) {
+        'GridView' {
+            # Check if Out-GridView cmdlet is available
+            $gridViewAvailable = $null -ne (Get-Command -Name 'Out-GridView' -ErrorAction SilentlyContinue)
+            if ($gridViewAvailable) {
+                $infrastructureConfig | Out-GridView -Title "Infrastructure.json Configuration Reference"
+            } else {
+                Write-Warning "Out-GridView is not available on this system (typically only available on Windows PowerShell). Using List format instead."
+                $infrastructureConfig | Format-List -Property 'Element Name', 'Default Value May Be Used?', 'Created by Script?', 'Notes'
+            }
+        }
+        'List' {
+            $infrastructureConfig | Format-List -Property 'Element Name', 'Default Value May Be Used?', 'Created by Script?', 'Notes'
+        }
+        'Table' {
+            try {
+                $infrastructureConfig | Format-ConfigurationTable
+            } catch {
+                Write-Warning "Failed to format configuration table: $($_.Exception.Message)"
+                Write-Host "Displaying configuration as list format:" -ForegroundColor Yellow
+                $infrastructureConfig | Format-List -Property 'Element Name', 'Default Value May Be Used?', 'Created by Script?', 'Notes'
+            }
+        }
     }
 
     Write-Host "`n"
@@ -11745,16 +11903,57 @@ Function Show-SupervisorJsonConfigurationHelp {
         for the supervisor.json file, including whether default values can be used, whether
         the element is created by the script, and important notes for each field.
 
+        .PARAMETER Format
+        Specifies the output format. Valid values are:
+
+        - Auto (default): Automatically selects the best format based on terminal width. Uses 'List' for narrow screens (< WidthThreshold characters, default 120) and 'Table' for wide screens (>= WidthThreshold characters).
+        - List: Displays each field on its own line. Works best for narrow screens (40-50+ characters). No column wrapping issues.
+        - Table: Displays data in a table format with columns. Best for wide screens (WidthThreshold+ characters, default 120+).
+        - GridView: Opens an interactive grid view window with sorting and filtering capabilities. Works on any screen size but requires Windows PowerShell (not available in PowerShell Core on macOS/Linux).
+
+        .PARAMETER Filter
+        Filters the configuration elements by Element Name using wildcard matching. The filter is automatically wrapped with wildcards (*) on both sides.
+        For example, '-Filter tkgsComponentSpec' will match all elements containing 'tkgsComponentSpec' in their name.
+
         .EXAMPLE
         Show-SupervisorJsonConfigurationHelp
 
-        Displays the complete supervisor.json configuration reference table.
+        Displays the complete supervisor.json configuration reference table using auto-detected format.
+
+        .EXAMPLE
+        Show-SupervisorJsonConfigurationHelp -Format Auto
+
+        Automatically selects the best format based on terminal width.
+
+        .EXAMPLE
+        Show-SupervisorJsonConfigurationHelp -Format List
+
+        Displays the configuration in list format, ideal for narrow screens.
+
+        .EXAMPLE
+        Show-SupervisorJsonConfigurationHelp -Format Table
+
+        Displays the configuration in table format, ideal for wide screens.
+
+        .EXAMPLE
+        Show-SupervisorJsonConfigurationHelp -Format GridView
+
+        Opens an interactive grid view window with sorting and filtering capabilities (Windows PowerShell only).
+
+        .EXAMPLE
+        Show-SupervisorJsonConfigurationHelp -Filter tkgsComponentSpec
+
+        Displays only configuration elements containing 'tkgsComponentSpec' in their Element Name.
 
         .OUTPUTS
-        None. This function displays formatted table output to the console.
+        None. This function displays formatted output to the console or opens a grid view window.
     #>
     [CmdletBinding()]
-    Param()
+    Param(
+        [Parameter()] [ValidateSet('Table', 'List', 'GridView', 'Auto')] [string]$Format = 'Auto',
+        [Parameter()] [string]$Filter,
+        [Parameter()] [int]$WidthThreshold = 120
+    )
 
     $supervisorConfig = @(
         [PSCustomObject]@{
@@ -12005,23 +12204,73 @@ Function Show-SupervisorJsonConfigurationHelp {
         }
     )
 
+    # Apply filter if specified
+    if ($Filter) {
+        $filterPattern = "*$Filter*"
+        $supervisorConfig = $supervisorConfig | Where-Object {
+            $_.'Element Name' -like $filterPattern
+        }
+
+        if ($supervisorConfig.Count -eq 0) {
+            Write-Warning "No configuration elements found matching filter: $Filter"
+            return
+        }
+    }
+
+    # Detect terminal width
+    $terminalWidth = if ($Host.UI.RawUI.BufferSize.Width -gt 0) {
+        $Host.UI.RawUI.BufferSize.Width
+    } else {
+        $WidthThreshold  # Default fallback
+    }
+
+    # Adjust line width for header (max WidthThreshold, or terminal width if smaller)
+    $lineWidth = [Math]::Min($terminalWidth, $WidthThreshold)
+
     Write-Host "`n" -NoNewline
-    Write-Host ("=" * 120) -ForegroundColor Cyan
+    Write-Host ("=" * $lineWidth) -ForegroundColor Cyan
     Write-Host "Supervisor.json Configuration Reference" -ForegroundColor Cyan
-    Write-Host ("=" * 120) -ForegroundColor Cyan
+    Write-Host ("=" * $lineWidth) -ForegroundColor Cyan
     Write-Host "`n"
 
-    try {
-        $supervisorConfig | Format-Table -AutoSize -Wrap
-    } catch {
-        Write-Warning "Failed to format configuration table: $($_.Exception.Message)"
-        Write-Host "Displaying configuration as list format:" -ForegroundColor Yellow
-        $supervisorConfig | Format-List
+    # Determine format if Auto is selected
+    if ($Format -eq 'Auto') {
+        # Auto-select: List for narrow screens (< WidthThreshold chars), Table for wide screens
+        if ($terminalWidth -lt $WidthThreshold) {
+            $Format = 'List'
+        } else {
+            $Format = 'Table'
+        }
+    }
+
+    # Display based on selected format
+    switch ($Format) {
+        'GridView' {
+            # Check if Out-GridView cmdlet is available
+            $gridViewAvailable = $null -ne (Get-Command -Name 'Out-GridView' -ErrorAction SilentlyContinue)
+            if ($gridViewAvailable) {
+                $supervisorConfig | Out-GridView -Title "Supervisor.json Configuration Reference"
+            } else {
+                Write-Warning "Out-GridView is not available on this system (typically only available on Windows PowerShell). Using List format instead."
+                $supervisorConfig | Format-List -Property 'Element Name', 'Default Value May Be Used?', 'Created by Script?', 'Notes'
+            }
+        }
+        'List' {
+            $supervisorConfig | Format-List -Property 'Element Name', 'Default Value May Be Used?', 'Created by Script?', 'Notes'
+        }
+        'Table' {
+            try {
+                $supervisorConfig | Format-ConfigurationTable
+            } catch {
+                Write-Warning "Failed to format configuration table: $($_.Exception.Message)"
+                Write-Host "Displaying configuration as list format:" -ForegroundColor Yellow
+                $supervisorConfig | Format-List -Property 'Element Name', 'Default Value May Be Used?', 'Created by Script?', 'Notes'
+            }
+        }
     }
 
     Write-Host "`n"
 }
 
-# Export the public functions
+# Export the public functions.
 Export-ModuleMember -Function 'Start-SimpleSupervisorDeploymentAtScale', 'Copy-SimpleSupervisorTemplates', 'Show-InfrastructureJsonConfigurationHelp', 'Show-SupervisorJsonConfigurationHelp'
-

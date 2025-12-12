@@ -102,12 +102,30 @@ Edit the template files with your environment-specific values:
 **Need help configuring your JSON files?** Use the built-in helper functions to view detailed configuration reference tables:
 
 ```powershell
-# View infrastructure.json configuration reference
+# View infrastructure.json configuration reference (auto-detects best format)
 Show-InfrastructureJsonConfigurationHelp
 
-# View supervisor.json configuration reference
+# View supervisor.json configuration reference (auto-detects best format)
 Show-SupervisorJsonConfigurationHelp
+
+# Use list format for narrow screens
+Show-InfrastructureJsonConfigurationHelp -Format List
+Show-SupervisorJsonConfigurationHelp -Format List
+
+# Use table format for wide screens (with separators for readability)
+Show-InfrastructureJsonConfigurationHelp -Format Table
+Show-SupervisorJsonConfigurationHelp -Format Table
+
+# Use interactive grid view (Windows PowerShell only)
+Show-InfrastructureJsonConfigurationHelp -Format GridView
+Show-SupervisorJsonConfigurationHelp -Format GridView
 ```
+
+**Format Options:**
+- **Auto** (default): Automatically selects the best format based on terminal width. Uses 'List' for narrow screens (< 120 characters) and 'Table' for wide screens (≥ 120 characters).
+- **List**: Displays each field on its own line. Works best for narrow screens (40-50+ characters). No column wrapping issues.
+- **Table**: Displays data in a table format with horizontal separators between rows. Best for wide screens (120+ characters).
+- **GridView**: Opens an interactive grid view window with sorting and filtering capabilities. Works on any screen size but requires Windows PowerShell (not available in PowerShell Core on macOS/Linux).
 
 These functions display comprehensive tables showing:
 - All configuration elements and their paths
@@ -194,12 +212,37 @@ Copy-SimpleSupervisorTemplates -DestinationPath "./config" -Confirm
 
 Displays a comprehensive reference table for configuring the `infrastructure.json` file. This helper function shows all configuration elements, whether default values can be used, whether elements are created by the script, and important notes for each field.
 
+**Parameters:**
+- `Format` (String, optional) - Output format. Valid values: `Auto` (default), `List`, `Table`, `GridView`. Default: `Auto`
+- `Filter` (String, optional) - Filters configuration elements by Element Name using wildcard matching. The filter is automatically wrapped with wildcards (*) on both sides.
+
 **Examples:**
 
 ```powershell
-# Display infrastructure.json configuration reference
+# Display infrastructure.json configuration reference (auto-detects best format)
 Show-InfrastructureJsonConfigurationHelp
+
+# Use list format for narrow screens
+Show-InfrastructureJsonConfigurationHelp -Format List
+
+# Use table format for wide screens (with separators)
+Show-InfrastructureJsonConfigurationHelp -Format Table
+
+# Use interactive grid view (Windows PowerShell only)
+Show-InfrastructureJsonConfigurationHelp -Format GridView
+
+# Filter to show only argoCD related elements
+Show-InfrastructureJsonConfigurationHelp -Filter argoCD
+
+# Combine filter with format
+Show-InfrastructureJsonConfigurationHelp -Filter storagePolicy -Format List
 ```
+
+**Format Options:**
+- **Auto**: Automatically selects the best format based on terminal width
+- **List**: Vertical layout, ideal for narrow screens (40-50+ characters)
+- **Table**: Table format with horizontal separators, ideal for wide screens (120+ characters)
+- **GridView**: Interactive window with sorting/filtering (Windows PowerShell only)
 
 The output includes detailed information about:
 - vCenter and ESX host configuration
@@ -213,12 +256,37 @@ The output includes detailed information about:
 
 Displays a comprehensive reference table for configuring the `supervisor.json` file. This helper function shows all configuration elements, whether default values can be used, whether elements are created by the script, and important notes for each field.
 
+**Parameters:**
+- `Format` (String, optional) - Output format. Valid values: `Auto` (default), `List`, `Table`, `GridView`. Default: `Auto`
+- `Filter` (String, optional) - Filters configuration elements by Element Name using wildcard matching. The filter is automatically wrapped with wildcards (*) on both sides.
+
 **Examples:**
 
 ```powershell
-# Display supervisor.json configuration reference
+# Display supervisor.json configuration reference (auto-detects best format)
 Show-SupervisorJsonConfigurationHelp
+
+# Use list format for narrow screens
+Show-SupervisorJsonConfigurationHelp -Format List
+
+# Use table format for wide screens (with separators)
+Show-SupervisorJsonConfigurationHelp -Format Table
+
+# Use interactive grid view (Windows PowerShell only)
+Show-SupervisorJsonConfigurationHelp -Format GridView
+
+# Filter to show only tkgsComponentSpec related elements
+Show-SupervisorJsonConfigurationHelp -Filter tkgsComponentSpec
+
+# Filter for load balancer elements
+Show-SupervisorJsonConfigurationHelp -Filter flb -Format List
 ```
+
+**Format Options:**
+- **Auto**: Automatically selects the best format based on terminal width
+- **List**: Vertical layout, ideal for narrow screens (40-50+ characters)
+- **Table**: Table format with horizontal separators, ideal for wide screens (120+ characters)
+- **GridView**: Interactive window with sorting/filtering (Windows PowerShell only)
 
 The output includes detailed information about:
 - Supervisor control plane configuration (VM count, size)
@@ -240,7 +308,7 @@ Contains infrastructure-level configuration including:
 - **Networking**: Virtual Distributed Switch (VDS) configuration, port groups, VLANs
 - **ArgoCD**: Operator and deployment YAML paths, namespace, VM classes
 
-**Configuration Help**: Run `Show-InfrastructureJsonConfigurationHelp` to view a detailed reference table with all configuration elements, default value options, and important notes.
+**Configuration Help**: Run `Show-InfrastructureJsonConfigurationHelp` to view a detailed reference table with all configuration elements, default value options, and important notes. Use the `-Format` parameter to choose the display format (Auto, List, Table, or GridView).
 
 ### supervisor.json
 
@@ -251,7 +319,7 @@ Contains supervisor cluster configuration including:
 - **Network Configuration**: Management and workload network settings, IP assignments
 - **DNS/NTP**: Server and search domain configuration
 
-**Configuration Help**: Run `Show-SupervisorJsonConfigurationHelp` to view a detailed reference table with all configuration elements, default value options, and important notes.
+**Configuration Help**: Run `Show-SupervisorJsonConfigurationHelp` to view a detailed reference table with all configuration elements, default value options, and important notes. Use the `-Format` parameter to choose the display format (Auto, List, Table, or GridView).
 
 # Logging
 
@@ -401,7 +469,13 @@ Open `infrastructure.json` and review all the fields, updating as required for y
 
 **Quick Reference**: Use the built-in helper function to view the configuration reference table:
 ```powershell
+# Auto-detects best format based on terminal width
 Show-InfrastructureJsonConfigurationHelp
+
+# Or specify format explicitly
+Show-InfrastructureJsonConfigurationHelp -Format List    # For narrow screens
+Show-InfrastructureJsonConfigurationHelp -Format Table     # For wide screens
+Show-InfrastructureJsonConfigurationHelp -Format GridView # Interactive (Windows only)
 ```
 
 Alternatively, refer to the table in `Admin.Guide.Single.Node.Supervisor.rtf` for detailed configuration guidance.
@@ -412,7 +486,13 @@ Open `supervisor.json` and review all the fields, updating as required for your 
 
 **Quick Reference**: Use the built-in helper function to view the configuration reference table:
 ```powershell
+# Auto-detects best format based on terminal width
 Show-SupervisorJsonConfigurationHelp
+
+# Or specify format explicitly
+Show-SupervisorJsonConfigurationHelp -Format List    # For narrow screens
+Show-SupervisorJsonConfigurationHelp -Format Table     # For wide screens
+Show-SupervisorJsonConfigurationHelp -Format GridView # Interactive (Windows only)
 ```
 
 Alternatively, refer to the table in `Admin.Guide.Single.Node.Supervisor.rtf` for detailed configuration guidance.
