@@ -11340,7 +11340,228 @@ Function Show-SimpleSupervisorDeploymentAtScaleVersion {
 
     Write-Host "SimpleSupervisorDeploymentAtScale version: $Script:ModuleVersion"
 }
+Function Copy-SimpleSupervisorTemplates {
+    <#
+    .SYNOPSIS
+        Copies supervisor deployment template files to a specified location.
+
+    .DESCRIPTION
+        Copy-SimpleSupervisorTemplates copies all four required template files from the module's Templates
+        directory to a specified destination. The function copies infrastructure.json, supervisor.json,
+        argocd-deployment.yml, and 1.0.1-24896502.yml. If any of these files are missing from the source
+        directory, the function will throw an error.
+
+        The template files are included with the module installation and contain example configurations
+        that users can modify for their environment.
+
+    .PARAMETER DestinationPath
+        The destination directory where the template files will be copied. If not specified, files are
+        copied to the current working directory.
+
+        Default: Current working directory ($PWD)
+
+    .PARAMETER WhatIf
+        Shows what would happen if the function runs. The function is executed but no changes are made.
+
+    .EXAMPLE
+        Copy-SimpleSupervisorTemplates
+
+        Copies all template files (infrastructure.json, supervisor.json, argocd-deployment.yml, and 1.0.1-24896502.yml) to the current working directory.
+
+    .EXAMPLE
+        Copy-SimpleSupervisorTemplates -DestinationPath "./config"
+
+        Copies all template files to the ./config subdirectory.
+
+    .EXAMPLE
+        Copy-SimpleSupervisorTemplates -WhatIf
+
+        Shows what files would be copied without actually copying them.
+
+    .NOTES
+        Template files are located in the module's Templates subdirectory. You can also access them directly
+        using the module path:
+
+        $modulePath = (Get-Module -Name SimpleSupervisorDeploymentAtScale -ListAvailable).ModuleBase
+        $templatePath = Join-Path $modulePath "Templates"
+
+        The template files contain example values that must be modified for your specific environment.
+    #>
+
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    Param (
+        [Parameter(Mandatory = $false)] [String]$DestinationPath = $PWD
+    )
+
+    Write-LogMessage -Type DEBUG -Message "Entered Copy-SimpleSupervisorTemplates function..."
+
+    # Validate destination path
+    if ([string]::IsNullOrWhiteSpace($DestinationPath)) {
+        Write-LogMessage -Type ERROR -Message "Destination path cannot be null, empty, or contain only whitespace characters."
+        throw "Deployment failed. Check logs for details."
+    }
+
+    # Validate path format (basic validation for invalid characters)
+    if ($DestinationPath -match '[<>"|?*]') {
+        Write-LogMessage -Type ERROR -Message "Destination path contains invalid characters: $($matches[0])"
+        throw "Deployment failed. Check logs for details."
+    }
+
+    # Validate that the destination path is valid using Test-Path
+    # Check if parent directory exists (if path has a parent) or if the path itself is valid
+    $parentPath = Split-Path -Path $DestinationPath -Parent -ErrorAction SilentlyContinue
+    if ($parentPath -and $parentPath -ne $DestinationPath) {
+        if (-not (Test-Path -Path $parentPath -ErrorAction SilentlyContinue)) {
+            Write-LogMessage -Type ERROR -Message "Destination path parent directory does not exist: $parentPath"
+            throw "Deployment failed. Check logs for details."
+        }
+    }
+
+    # Define the four required template files
+    $requiredTemplateFiles = @("infrastructure.json", "supervisor.json", "argocd-deployment.yml", "1.0.1-24896502.yml")
+
+    # Determine the module's template directory
+    $moduleBase = $null
+
+    # Primary: Use module's ModuleBase if available (most reliable)
+    if ($MyInvocation.MyCommand.Module.ModuleBase) {
+        $moduleBase = $MyInvocation.MyCommand.Module.ModuleBase
+    } elseif ($PSScriptRoot) {
+        # Fallback 1: Use PSScriptRoot (when module is loaded)
+        $moduleBase = $PSScriptRoot
+        # Check if Templates directory exists in current path
+        $templatesCheck = Join-Path $moduleBase "Templates"
+        if (-not (Test-Path $templatesCheck)) {
+            # If not found, check if we're in root and Templates is in SimpleSupervisorDeploymentAtScale subdirectory
+            # This handles development/testing scenarios
+            $subDirCheck = Join-Path $moduleBase (Join-Path "SimpleSupervisorDeploymentAtScale" "Templates")
+            if (Test-Path $subDirCheck) {
+                $moduleBase = Join-Path $moduleBase "SimpleSupervisorDeploymentAtScale"
+            }
+        }
+    } else {
+        # Fallback 2: Query module system
+        $moduleInfo = Get-Module -Name "SimpleSupervisorDeploymentAtScale" -ListAvailable | Select-Object -First 1
+        if ($moduleInfo -and $moduleInfo.ModuleBase) {
+            $moduleBase = $moduleInfo.ModuleBase
+        }
+    }
+
+    if (-not $moduleBase) {
+        Write-LogMessage -Type ERROR -Message "Unable to determine module installation path. Please ensure the module is installed correctly."
+        throw "Deployment failed. Check logs for details."
+    }
+
+    $templatesPath = Join-Path $moduleBase "Templates"
+
+    if (-not (Test-Path $templatesPath)) {
+        Write-LogMessage -Type ERROR -Message "Templates directory not found at: $templatesPath"
+        throw "Deployment failed. Check logs for details."
+    }
+
+    # Validate that all required template files exist before attempting to copy
+    $missingFiles = @()
+    foreach ($fileName in $requiredTemplateFiles) {
+        $sourceFile = Join-Path $templatesPath $fileName
+        if (-not (Test-Path $sourceFile)) {
+            $missingFiles += $fileName
+        }
+    }
+
+    if ($missingFiles.Count -gt 0) {
+        Write-LogMessage -Type ERROR -Message "Required template files not found in source directory: $($missingFiles -join ', ')"
+        throw "Deployment failed. Check logs for details."
+    }
+
+    # Ensure destination directory exists
+    if (-not (Test-Path $DestinationPath)) {
+        if ($PSCmdlet.ShouldProcess($DestinationPath, "Create directory")) {
+            try {
+                New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+                Write-LogMessage -Type DEBUG -Message "Created destination directory: $DestinationPath"
+            } catch {
+                Write-LogMessage -Type ERROR -Message "Failed to create destination directory '$DestinationPath': $($_.Exception.Message)"
+                throw "Deployment failed. Check logs for details."
+            }
+        }
+    }
+
+    $copiedCount = 0
+    $skippedCount = 0
+
+    foreach ($fileName in $requiredTemplateFiles) {
+        $sourceFile = Join-Path $templatesPath $fileName
+        $destFile = Join-Path $DestinationPath $fileName
+
+        # Check if destination file already exists and prompt for confirmation
+        if (Test-Path $destFile) {
+            # Skip prompt if WhatIf is enabled
+            if ($WhatIfPreference) {
+                Write-LogMessage -Type INFO -Message "Would overwrite existing file: $destFile"
+            } elseif ($PSCmdlet.ShouldProcess($destFile, "Overwrite existing file")) {
+                try {
+                    $overwrite = Read-Host "File '$destFile' already exists. Overwrite? (Y/N)"
+                    if ($overwrite -ne "Y" -and $overwrite -ne "y") {
+                        Write-LogMessage -Type INFO -Message "Skipping $fileName - file already exists and user chose not to overwrite."
+                        $skippedCount++
+                        continue
+                    }
+                } catch {
+                    Write-LogMessage -Type WARNING -Message "User cancelled file overwrite prompt for $fileName."
+                    $skippedCount++
+                    continue
+                }
+            } else {
+                # ShouldProcess returned false (user declined via Confirm prompt)
+                Write-LogMessage -Type INFO -Message "Skipping $fileName - user declined to overwrite existing file."
+                $skippedCount++
+                continue
+            }
+        }
+
+        if ($PSCmdlet.ShouldProcess($destFile, "Copy template file")) {
+            if ($WhatIfPreference) {
+                Write-LogMessage -Type INFO -Message "Would copy $fileName to $DestinationPath"
+                $copiedCount++
+            } else {
+                try {
+                    Copy-Item -Path $sourceFile -Destination $destFile -Force
+                    Write-LogMessage -Type INFO -Message "Copied $fileName to $DestinationPath"
+                    $copiedCount++
+                } catch {
+                    Write-LogMessage -Type ERROR -Message "Failed to copy $fileName to '$DestinationPath': $($_.Exception.Message)"
+                    throw "Deployment failed. Check logs for details."
+                }
+            }
+        } else {
+            Write-LogMessage -Type INFO -Message "Would copy $fileName to $DestinationPath"
+            $copiedCount++
+        }
+    }
+
+    # Build and display summary message
+    if ($WhatIfPreference) {
+        $summaryMessage = "What if: Performing the operation 'Copy template files' on target '$DestinationPath'. "
+        $summaryMessage += "Would copy $copiedCount file(s)"
+        if ($skippedCount -gt 0) {
+            $summaryMessage += ", would skip $skippedCount file(s) (already exist)"
+        }
+        Write-LogMessage -Type INFO -Message $summaryMessage
+    } elseif ($copiedCount -gt 0) {
+        $summaryMessage = "Template files copied successfully to: $DestinationPath ($copiedCount file(s) copied"
+        if ($skippedCount -gt 0) {
+            $summaryMessage += ", $skippedCount file(s) skipped)"
+        } else {
+            $summaryMessage += ")"
+        }
+        Write-LogMessage -Type INFO -Message $summaryMessage
+    } elseif ($skippedCount -gt 0) {
+        Write-LogMessage -Type INFO -Message "All template files were skipped ($skippedCount file(s) already exist)"
+    } else {
+        Write-LogMessage -Type INFO -Message "No template files were copied or skipped"
+    }
+}
 
 # Export the public functions
-Export-ModuleMember -Function 'Start-SimpleSupervisorDeploymentAtScale'
+Export-ModuleMember -Function 'Start-SimpleSupervisorDeploymentAtScale', 'Copy-SimpleSupervisorTemplates'
 

@@ -79,7 +79,8 @@ RequiredModules = @(
 
 # Functions to export from this module. For best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @(
-    'Start-SimpleSupervisorDeploymentAtScale'
+    'Start-SimpleSupervisorDeploymentAtScale',
+    'Copy-SimpleSupervisorTemplates'
 )
 
 # Cmdlets to export from this module. For best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -98,7 +99,12 @@ AliasesToExport = @()
 # ModuleList = @()
 
 # List of all files packaged with this module
-# FileList = @()
+FileList = @(
+    'Templates/infrastructure.json',
+    'Templates/supervisor.json',
+    'Templates/argocd-deployment.yml',
+    'Templates/1.0.1-24896502.yml'
+)
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{
@@ -106,7 +112,7 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = @('VMware', 'VCF', 'vSphere', 'Supervisor', 'Kubernetes', 'ArgoCD', 'Deployment', 'Automation')
+        Tags = @('VMware', 'VCF', 'vSphere', 'Supervisor', 'Kubernetes', 'ArgoCD', 'Deployment', 'Automation', 'VKS')
 
         # A URL to the license for this module.
         LicenseUri = 'https://github.com/vmware/powershell-module-for-simple-supervisor-deployment-at-scale/blob/main/LICENSE.md'
@@ -115,7 +121,7 @@ PrivateData = @{
         ProjectUri = 'https://github.com/vmware/powershell-module-for-simple-supervisor-deployment-at-scale'
 
         # A URL to an icon representing this module.
-        IconUri = 'https://raw.githubusercontent.com/vmware/vmware/powershell-module-for-simple-supervisor-deployment-at-scale/main/.github/icon-85px.svg'
+        IconUri = 'https://raw.githubusercontent.com/vmware/powershell-module-for-simple-supervisor-deployment-at-scale/main/.github/icon-85px.svg'
 
         # ReleaseNotes of this module
         #ReleaseNotes = @'
