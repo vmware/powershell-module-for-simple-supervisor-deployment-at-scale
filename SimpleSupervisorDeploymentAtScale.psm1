@@ -27,12 +27,12 @@
 # =============================================================================
 #
 # PowerShell Module: SimpleSupervisorDeploymentAtScale
-# Module Version: v1.0.0.3
+# Module Version: 1.0.0.3
 # Last modified: 2025-12-11
 #
 
 # Module-level variables
-$Script:ModuleVersion = 'v1.0.0.3'
+$Script:ModuleVersion = '1.0.0.3'
 
 # Set platform-specific command names for cross-platform compatibility.
 $Script:KubectlCmd = if ($isWindows) { "kubectl.exe" } else { "kubectl" }

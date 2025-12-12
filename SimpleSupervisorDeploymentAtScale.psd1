@@ -10,7 +10,7 @@
 RootModule = 'SimpleSupervisorDeploymentAtScale.psm1'
 
 # Version number of this module.
-ModuleVersion = 'v1.0.0.3'
+ModuleVersion = '1.0.0.3'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
