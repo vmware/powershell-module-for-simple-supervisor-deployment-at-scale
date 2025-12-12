@@ -11562,6 +11562,466 @@ Function Copy-SimpleSupervisorTemplates {
     }
 }
 
+Function Show-InfrastructureJsonConfigurationHelp {
+    <#
+        .SYNOPSIS
+        Displays a reference table for configuring infrastructure.json file.
+
+        .DESCRIPTION
+        This helper function displays a comprehensive table showing all configuration elements
+        for the infrastructure.json file, including whether default values can be used, whether
+        the element is created by the script, and important notes for each field.
+
+        .EXAMPLE
+        Show-InfrastructureJsonConfigurationHelp
+
+        Displays the complete infrastructure.json configuration reference table.
+
+        .OUTPUTS
+        None. This function displays formatted table output to the console.
+    #>
+    [CmdletBinding()]
+    Param()
+
+    $infrastructureConfig = @(
+        [PSCustomObject]@{
+            'Element Name' = 'common.vCenterName'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'Must be vCenter 9.0 or higher. Script execution system must have HTTPS access to it.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.vCenterUser'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'While administrator@vsphere.local can be used, it''s recommended that one use a less privileged user that can create clusters, PV port groups, and supervisors. SSO users may be used as well.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.EsxHost'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The script execution system must have HTTPS access to the ESX host'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.EsxUser'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'ESX User must have permission to create a datastore'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.datacenterName'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The Edge Cluster will be created under this virtual datacenter. It assumed the vSphere datacenter already existed before running the script.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.clusterName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The script will create an Edge ESX cluster using the cluster name.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.supervisorName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The script will create a vSphere Supervisor using this name.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.argoCD.argoCdOperatorYamlPath'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'Path to the ArgoCD operator YAML file. This file is part of the ZIP file download from step #2 or can be downloaded from the broadcom support portal. Please modify the path accordingly. For Windows systems, backslashes must be escaped, such as in the provided example. For MacOS and Linux, there is no need to escape the forward slash.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.argoCD.argoCdDeploymentYamlPath'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'Path to the modified ArgoCD instance YAML config. Refer to Step #3. Please modify the path accordingly. For Windows systems, backslashes must be escaped, such as in the provided example. For MacOS and Linux, there is no need to escape the forward slash. Namespace in this file must match the namespace in common.argoCD.nameSpace in infrastructure.json lest the script produce an error.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.argoCD.contextName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'This is the VCF context name. VCF CLI will configure a new set of VCF contexts to access and configure ArgoCD'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.argoCD.nameSpace'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'This namespace definition must match the one in the yaml file referenced in common.argoCD.argoCdDeploymentYamlPath.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.argoCD.vmClass'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'This is a list of VM classes already available to the Supervisor that you wish to associate with the ArgoCD namespace.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.datastore.datastoreName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The script will prompt the user to select an unformatted disk to format as VMFS using this name.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.storagePolicy.storagePolicyTagCatalog'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'Any TagCatalog name, Script will search if TagCatalog already exist, if not, create a new one'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.storagePolicy.storagePolicyName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'Policy used to map VMFS datastore specified to the Supervisor instance'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.storagePolicy.storagePolicyType'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The only valid value is VMFS. Please do not change otherwise the script will error with a warning to revert the setting to VMFS.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.storagePolicy.storagePolicyRule'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The only valid value is ''Fully initialized''. Please do not change otherwise the script will error with a warning to revert the setting to ''Fully initialized''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.virtualDistributedSwitch.vdsName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The virtual distributed switch created by the script.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.virtualDistributedSwitch.vdsVersion'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'This must be a valid virtual distributed switch version. The script will create a new VDS if there isn''t one already. Leave the value as ''9.0.0''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.virtualDistributedSwitch.numUplinks'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The number of uplinks used by the virtual distributed switch created by the script.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.virtualDistributedSwitch.nicList'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'An array of physical NICs on the ESX host that you wish to attach to the virtual distributed switch created by the script. Script will not migrate vmkernel to the newly created VDS.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'common.portGroups'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The names and VLANs of the port groups that you wish to create. Networks referenced for the flbManagementNetwork, flbVirtualServerNetwork, tkgsMgmtNetwork, and tkgsPrimaryWorkloadNetwork in the supervisor.json must exist in this file. The network names must be lower-cased and conform to RFC1123.'
+        }
+    )
+
+    Write-Host "`n" -NoNewline
+    Write-Host ("=" * 120) -ForegroundColor Cyan
+    Write-Host "Infrastructure.json Configuration Reference" -ForegroundColor Cyan
+    Write-Host ("=" * 120) -ForegroundColor Cyan
+    Write-Host "`n"
+
+    try {
+        $infrastructureConfig | Format-Table -AutoSize -Wrap
+    } catch {
+        Write-Warning "Failed to format configuration table: $($_.Exception.Message)"
+        Write-Host "Displaying configuration as list format:" -ForegroundColor Yellow
+        $infrastructureConfig | Format-List
+    }
+
+    Write-Host "`n"
+}
+
+Function Show-SupervisorJsonConfigurationHelp {
+    <#
+        .SYNOPSIS
+        Displays a reference table for configuring supervisor.json file.
+
+        .DESCRIPTION
+        This helper function displays a comprehensive table showing all configuration elements
+        for the supervisor.json file, including whether default values can be used, whether
+        the element is created by the script, and important notes for each field.
+
+        .EXAMPLE
+        Show-SupervisorJsonConfigurationHelp
+
+        Displays the complete supervisor.json configuration reference table.
+
+        .OUTPUTS
+        None. This function displays formatted table output to the console.
+    #>
+    [CmdletBinding()]
+    Param()
+
+    $supervisorConfig = @(
+        [PSCustomObject]@{
+            'Element Name' = 'supervisorSpec.controlPlaneVMCount'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The value may be either ''1'' or ''3''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'supervisorSpec.controlPlaneSize'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The value may be ''Tiny'', ''Small'', ''Medium'', or ''Large'''
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'Foundation Load Balancer Name'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbSize'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The value may ''Small'', ''Medium'', or ''Large'', or ''X-LARGE'''
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbAvailability'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The value may be ''SINGLE_NODE'' or ''ACTIVE_PASSIVE'' (for two-node deployments).'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbVipStartIP'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The starting IP for your Foundation Load Balancer virtual IP range.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbVipIPCount'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The number of IPs used by the Foundation Load Balancer starting from the flbVipStartIP'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbProvider'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The only valid value is ''VSPHERE_FOUNDATION''. Please do not change otherwise the script will error with a warning to revert the setting to ''VSPHERE_FOUNDATION''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbDnsServers'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The DNS server(s) for the Foundation Load Balancer network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbNtpServers'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The NTP server(s) for the Foundation Load Balancer network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbSearchDomains'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The domain search domain for the Foundation Load Balancer network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbManagementNetwork.flbNetworkIpAssignmentMode'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The only valid value is ''STATIC''. Please do not change otherwise the script will error with a warning to revert the setting to ''STATIC''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbManagementNetwork.flbNetworkName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'This network name may be changed, but it must also be changed in infrastructure.json common.portGroup.name. The network name must be lower-cased and conform to RFC1123.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbManagementNetwork.flbNetworkType'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The only valid value is ''DVPG''. Please do not change otherwise the script will error with a warning to revert the setting to ''DVPG''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbManagementNetwork.flbNetworkIpAddressStartingIp'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The starting IP for your Foundation Load Balancer management IP range.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbManagementNetwork.flbNetworkIpAddressCount'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The number of IPs used by the Foundation Load Balancer management network, starting from the flbNetworkIpAddressStartingIp'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbManagementNetwork.flbNetworkGateway'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'Default gateway for Foundation Load Balancer management network'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbVirtualServerNetwork.flbNetworkIpAssignmentMode'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The only valid value is ''STATIC''. Please do not change otherwise the script will error with a warning to revert the setting to ''STATIC''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbVirtualServerNetwork.flbNetworkName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'This network name may be changed, but it must also be changed in infrastructure.json common.portGroup.name.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbVirtualServerNetwork.flbNetworkType'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The only valid value is ''DVPG''. Please do not change otherwise the script will error with a warning to revert the setting to ''DVPG''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbVirtualServerNetwork.flbNetworkIpAddressStartingIp'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The starting IP for your Foundation Load Balancer server network IP range.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbVirtualServerNetwork.flbNetworkIpAddressCount'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The number of IPs used by the Foundation Load Balancer virtual server network in the virtual IP range, starting from the flbNetworkIpAddressStartingIp.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.foundationLoadBalancerComponents.flbVirtualServerNetwork.flbNetworkGateway'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'Default gateway for Foundation Load Balancer server network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsMgmtNetworkSpec.tkgsMgmtIpAssignmentMode'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'No'
+            'Notes' = 'The only valid value is ''STATIC''. Please do not change otherwise the script will error with a warning to revert the setting to ''STATIC''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsMgmtNetworkSpec.tkgsMgmtNetworkName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'This network name may be changed, but it must also be changed in infrastructure.json common.portGroup.name. The network name must be lower-cased and conform to RFC1123.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsMgmtNetworkSpec.tkgsMgmtNetworkGatewayCidr'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'Default gateway for VKS server network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsMgmtNetworkSpec.tkgsMgmtNetworkStartingIp'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The starting IP for your VKS management network IP range.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsMgmtNetworkSpec.tkgsMgmtNetworkIPCount'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The number of IPs used by the Foundation Load Balancer virtual server network in the virtual IP range, starting from the .tkgsMgmtNetworkIPCount.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsMgmtNetworkSpec.tkgsMgmtNetworkDnsServers'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The DNS server(s) for the VKS management network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsMgmtNetworkSpec.tkgsMgmtNetworkSearchDomains'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The domain search domain for the VKS management network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsMgmtNetworkSpec.tkgsMgmtNetworkNtpServers'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The NTP server(s) for the VKS management network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsPrimaryWorkloadIpAssignmentMode'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The only valid value is ''STATIC''. Please do not change otherwise the script will error with a warning to revert the setting to ''STATIC''.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsPrimaryWorkloadNetworkName'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'This network name may be changed, but it must also be changed in infrastructure.json common.portGroup.name. The network name must be lower-cased and conform to RFC1123.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsPrimaryWorkloadNetworkGatewayCidr'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'Default gateway for VKS workload network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsPrimaryWorkloadNetworkStartingIp'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The starting IP address for the VKS workload network virtual IP range.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsPrimaryWorkloadNetworkIPCount'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The number of IPs for the VKS workload network virtual IP range.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsPrimaryWorkloadNetworkSearchDomains'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The DNS search domain for the VKS workload network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsWorkloadDnsServers'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The DNS server(s) for the VKS workload network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsWorkloadNtpServers'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'No'
+            'Notes' = 'The NTP server(s) for the VKS workload network.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsWorkloadServiceStartIp'
+            'Default Value May Be Used?' = 'No'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The starting IP address for the VKS workload network virtual IP range.'
+        },
+        [PSCustomObject]@{
+            'Element Name' = 'tkgsComponentSpec.tkgsPrimaryWorkloadNetwork.tkgsWorkloadServiceCount'
+            'Default Value May Be Used?' = 'Yes'
+            'Created by Script?' = 'Yes'
+            'Notes' = 'The maximum IP count, provisioned starting tkgsWorkloadServiceStartIp IP address, for the VKS workload network virtual IP range. This IP account must fully occupy a CIDR address range, for example, 256 or 512, but not 200 or 500.'
+        }
+    )
+
+    Write-Host "`n" -NoNewline
+    Write-Host ("=" * 120) -ForegroundColor Cyan
+    Write-Host "Supervisor.json Configuration Reference" -ForegroundColor Cyan
+    Write-Host ("=" * 120) -ForegroundColor Cyan
+    Write-Host "`n"
+
+    try {
+        $supervisorConfig | Format-Table -AutoSize -Wrap
+    } catch {
+        Write-Warning "Failed to format configuration table: $($_.Exception.Message)"
+        Write-Host "Displaying configuration as list format:" -ForegroundColor Yellow
+        $supervisorConfig | Format-List
+    }
+
+    Write-Host "`n"
+}
+
 # Export the public functions
-Export-ModuleMember -Function 'Start-SimpleSupervisorDeploymentAtScale', 'Copy-SimpleSupervisorTemplates'
+Export-ModuleMember -Function 'Start-SimpleSupervisorDeploymentAtScale', 'Copy-SimpleSupervisorTemplates', 'Show-InfrastructureJsonConfigurationHelp', 'Show-SupervisorJsonConfigurationHelp'
 
